@@ -2,7 +2,7 @@
 
 An LLM pairwise tournament that scores Bank of Canada monetary-policy communication
 on a hawkish–dovish spectrum, and publishes the result as a static site:
-**https://james-j-liu.github.io/boclock/**
+**https://james-j-liu.github.io/BoCLock/**
 
 It is the Bank of Canada counterpart to [MPCLock](https://james-j-liu.github.io/mpclock/)
 (Bank of England) and ECBLock, and all follow the method of
@@ -106,7 +106,7 @@ GitHub Pages.
 
 ## Deploying
 
-1. Create the GitHub repo (e.g. `james-j-liu/boclock`) and push `main`.
+1. Create the GitHub repo (`james-j-liu/BoCLock`) and push `main`.
 2. Settings → Pages → Source: **GitHub Actions**.
 3. Settings → Secrets → Actions: add `OPENROUTER_API_KEY`.
 
