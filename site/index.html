@@ -98,7 +98,9 @@
         <label><input type="checkbox" class="ov" value="cpi_trim"> CPI-trim</label>
         <label><input type="checkbox" class="ov" value="cpi_median"> CPI-median</label>
         <label><input type="checkbox" class="ov" value="goc_10y"> 10Y GoC</label>
+        <label title="Each rate announcement's decision in 25bp units, read from the announcement itself: 0 is a hold, +1 a quarter-point hike, −3 a 75bp cut. The Council decides by consensus, so there are no dissents to add"><input type="checkbox" class="ov" value="decision"> BoC decision</label>
       </span>
+      <label title="Draw a separate hawkishness trend for each kind of document — rate announcements, Monetary Policy Reports, press-conference statements, summaries of deliberations, member speeches and parliamentary evidence — to see which of them drives the overall index"><input type="checkbox" id="tl-bytype"> Trend by document type</label>
     </div>
     <div id="tl-plot" class="plot"></div>
   </section>
@@ -111,6 +113,9 @@
       <label>Members
         <select id="rk-members"><option value="current" selected>Current Governing Council only</option>
         <option value="gc">All Council members (1995–2026)</option></select></label>
+      <label title="The Council decides by consensus, so its own output carries most of the signal. Split it to rank rate announcements, Reports, press-conference statements and summaries of deliberations separately">Council output
+        <select id="rk-split"><option value="combined" selected>Combined</option>
+        <option value="split">Split by document type</option></select></label>
       <label>Min. speeches
         <select id="rk-min"><option selected>1</option><option>5</option><option>10</option>
         <option>20</option><option>50</option></select></label>
@@ -158,7 +163,7 @@ function baseLayout(){return {paper_bgcolor:"#0e1116",plot_bgcolor:"#0e1116",
 // toggle without each one having to know about it.
 let ALL=[], DATA=[], META={}, MACRO={};
 const OVERLAY_COLORS={policy_rate:"#f2c744", cpi_headline:"#e377c2", cpi_trim:"#17becf",
-  cpi_median:"#5cb85c", goc_10y:"#9467bd"};
+  cpi_median:"#5cb85c", goc_10y:"#9467bd", decision:"#ff7f0e"};
 // The Bank targets 2% total CPI inflation (the midpoint of its 1–3% range), so 2% —
 // not 0% — is the neutral reading for an inflation series, and that is what should
 // line up with neutral hawkishness.
@@ -202,8 +207,10 @@ function applyRoster(r){ // overwrite defaults from data.json meta.roster
 }
 const COUNCIL="BoC Governing Council";
 function canon(n){ return ALIASES[n]||n; }
-function isCurrentGC(n){ n=canon(n); return n===COUNCIL||GC_CURRENT.has(n); }
-function isGC(n){ n=canon(n); return n===COUNCIL||GC_CURRENT.has(n)||GC_FORMER.has(n); }
+// "BoC Governing Council · Rate announcement" etc. when the composite is split
+function isCouncil(n){ return n===COUNCIL||n.startsWith(COUNCIL+" · "); }
+function isCurrentGC(n){ n=canon(n); return isCouncil(n)||GC_CURRENT.has(n); }
+function isGC(n){ n=canon(n); return isCouncil(n)||GC_CURRENT.has(n)||GC_FORMER.has(n); }
 function passMembership(n,mode){ return mode==="all"?true:mode==="current"?isCurrentGC(n):isGC(n); }
 
 // Document/event types (the "BoC Governing Council" composite spans several).
@@ -219,6 +226,16 @@ const TYPE_ORDER=["mp_announce","mp_statement","mp_report","mp_account","mp_qa",
 const SYMBOL_FOR={mp_announce:"triangle-up", mp_statement:"square", mp_report:"hexagon",
   mp_account:"diamond", mp_qa:"diamond-open", speech:"circle", interview:"circle", testimony:"star"};
 const MP_TYPES=new Set(["mp_announce","mp_statement","mp_report","mp_account","mp_qa"]);
+// The "Trend by document type" groups. Rate announcements and summaries of
+// deliberations are sparse (8 a year), so they are smoothed over a wider window.
+const TYPE_GROUPS=[
+  {label:"Rate announcements", types:["mp_announce"], color:"#f2c744", sigma:90},
+  {label:"Monetary Policy Reports", types:["mp_report"], color:"#e377c2", sigma:120},
+  {label:"Press-conference statements", types:["mp_statement"], color:"#ff7f0e", sigma:120},
+  {label:"Summaries of deliberations", types:["mp_account"], color:"#bcbd22", sigma:90},
+  {label:"Member speeches", types:["speech","interview"], color:"#17becf"},
+  {label:"Parliamentary evidence", types:["testimony"], color:"#9467bd", sigma:120},
+];
 // A statement to a parliamentary committee is an individual member's, not the
 // Council's, so it gets its own glyph and its own filter option.
 const TESTIMONY="testimony";
@@ -322,9 +339,22 @@ function renderTimeline(){
       line:{color:"#fff",width:rows.map(d=>MP_TYPES.has(d.st)?1:0)}},
     text:rows.map(d=>`${dispName(d)}<br>${d.d}<br>${SOURCE_LABELS[d.st]||d.st}<br>${d.tt}<br>score ${fmtScore(d[ykey])}`),hoverinfo:"text",name:"speeches"};
   const pts=rows.map(d=>({x:new Date(d.d),y:norm(d[ykey])})).sort((a,b)=>a.x-b.x);
-  const tr=gaussianTrend(pts);
-  const trend={x:tr.x,y:tr.y,mode:"lines",type:"scatter",line:{color:"#fff",width:2},name:"Hawkishness trend"};
-  const traces=[trace,trend];
+  const traces=[trace];
+  const byType=document.getElementById("tl-bytype").checked;
+  if(byType){
+    // one trend per kind of document, so it shows which of them moves the index
+    for(const g of TYPE_GROUPS){
+      const gp=rows.filter(d=>g.types.includes(d.st))
+        .map(d=>({x:new Date(d.d),y:norm(d[ykey])})).sort((a,b)=>a.x-b.x);
+      if(gp.length<8) continue;
+      const t=gaussianTrend(gp, g.sigma||45);
+      traces.push({x:t.x,y:t.y,mode:"lines",type:"scatter",line:{color:g.color,width:2},
+                   name:`${g.label} (${gp.length})`});
+    }
+  } else {
+    const tr=gaussianTrend(pts);
+    traces.push({x:tr.x,y:tr.y,mode:"lines",type:"scatter",line:{color:"#fff",width:2},name:"Hawkishness trend"});
+  }
 
   // macro / market overlays on a secondary (right) axis
   const checked=[...document.querySelectorAll("#tl-overlays .ov:checked")].map(c=>c.value);
@@ -338,7 +368,7 @@ function renderTimeline(){
     const rel=TARGET_RELATIVE.has(key);
     const ys=s.data.map(p=>rel?+(p[1]-INFLATION_TARGET).toFixed(3):p[1]);
     for(const y of ys) ovAbs=Math.max(ovAbs,Math.abs(y));
-    // a vote series is one point per meeting, not a continuous line. Plotly rejects
+    // a decision series is one point per announcement, not a continuous line. Plotly rejects
     // keys set to undefined, so marker/line are attached rather than nulled out.
     const colour=OVERLAY_COLORS[key]||"#aaa", isMarker=s.shape==="marker";
     const tr={x:s.data.map(p=>p[0]), y:ys, customdata:s.data.map(p=>p[1]),
@@ -355,7 +385,7 @@ function renderTimeline(){
   // symmetric y-range that fits the data (direct spans wider than pairwise)
   const yabs=Math.max(6,...rows.map(d=>Math.abs(norm(d[ykey]))||0));
   const Y=Math.ceil(yabs);
-  const showOverlay=checked.length>0;
+  const showOverlay=checked.length>0||byType;
   const lay=baseLayout();
   lay.showlegend=showOverlay;
   lay.legend={orientation:"h",y:1.08,x:0,font:{size:11},bgcolor:"rgba(0,0,0,0)"};
@@ -368,6 +398,7 @@ function renderTimeline(){
   const R=Math.max(1,Math.ceil(ovAbs*1.05));
   const titles=[];
   if(checked.some(k=>TARGET_RELATIVE.has(k))) titles.push("pp vs 2% target");
+  if(checked.includes("decision")) titles.push("decision (25bp)");
   if(checked.some(k=>k==="policy_rate"||k==="goc_10y")) titles.push("% level");
   lay.yaxis2={overlaying:"y",side:"right",showgrid:false,zeroline:false,color:MUT,
               title:titles.join(" · "),range:[-R,R]};
@@ -377,9 +408,11 @@ function renderTimeline(){
 function monthsBefore(d,n){ const t=new Date(d); t.setMonth(t.getMonth()-n); return t.toISOString().slice(0,10); }
 function speakerAgg(scoreKey,membership,recentCutoff){
   const m={}, rec={};
+  const el=document.getElementById("rk-split"), splitCouncil=el&&el.value==="split";
   for(const d of DATA){
     if(!has(d,scoreKey)) continue;
-    const name=dispName(d);
+    let name=dispName(d);
+    if(splitCouncil && name===COUNCIL) name=`${COUNCIL} · ${SOURCE_LABELS[d.st]||d.st}`;
     if(!passMembership(name,membership)) continue;
     (m[name]=m[name]||[]).push(d[scoreKey]);
     // recent = a member's own speeches & interviews in the trailing window
@@ -589,6 +622,21 @@ people who served twice — Mark Carney was a Deputy Governor in 2003–04 befor
 Governor, and Tiff Macklem a Deputy Governor (2004–07) and Senior Deputy Governor (2010–14)
 before becoming Governor. The Bank publishes no attendance lists, so terms come from the Bank's
 own records and are kept in the pipeline's roster.</p>
+<h3>Council decisions</h3>
+<p>The <b>BoC decision</b> overlay marks every rate announcement with its decision in <b>25bp
+units</b>: 0 is a hold, +1 a quarter-point hike, −3 a 75bp cut. The level is read from each
+announcement's opening sentence ("…held its target for the overnight rate at 2.25%") and the
+decision is the change from the previous announcement; every parsed level since 2009 matches the
+Bank's published overnight-rate series. The Governing Council decides by consensus and
+publishes no votes, so unlike the MPC there are no dissents to fold in: this is the whole of the
+Council's recorded choice.</p>
+<h3>Trend by document type, and the Council split</h3>
+<p>Because the Council speaks with one voice, its own output carries most of the signal, and
+individual members' averages sit close together. <b>Trend by document type</b> (Timeline) draws
+a separate trend for rate announcements, Reports, press-conference statements, summaries of
+deliberations, member speeches and parliamentary evidence, so it is visible which of them moves
+the index. On Rankings, <b>Council output → Split by document type</b> ranks each kind of
+Council document as its own row.</p>
 <h3>Market overlays (Timeline)</h3>
 <p>The Timeline can overlay the <b>policy rate</b> (the target for the overnight rate; before
 2009 recovered as the Bank Rate less 25bp, its fixed spread since 1996), <b>total CPI</b>,
@@ -665,9 +713,9 @@ document.getElementById("dt-csv").onclick=()=>{
   const blob=new Blob([dtText(",")],{type:"text/csv"}); const a=document.createElement("a");
   a.href=URL.createObjectURL(blob); a.download="boclock_"+document.getElementById("dt-set").value+".csv"; a.click();
   setTimeout(()=>URL.revokeObjectURL(a.href),1000);};
-["tl-y","tl-speaker","tl-docs"].forEach(id=>document.getElementById(id).onchange=renderTimeline);
+["tl-y","tl-speaker","tl-docs","tl-bytype"].forEach(id=>document.getElementById(id).onchange=renderTimeline);
 document.querySelectorAll("#tl-overlays .ov").forEach(c=>c.onchange=renderTimeline);
-["rk-score","rk-min","rk-members"].forEach(id=>document.getElementById(id).onchange=renderRankings);
+["rk-score","rk-min","rk-members","rk-split"].forEach(id=>document.getElementById(id).onchange=renderRankings);
 document.getElementById("sp-speaker").onchange=()=>{ fillSpeakerTypes(); renderSpeaker(); };
 document.getElementById("sp-type").onchange=renderSpeaker;
 function rerenderActive(){

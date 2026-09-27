@@ -1,6 +1,7 @@
 """Build site/macro.json: macro/market series to overlay on the Timeline tab.
 
 Series (Canadian analogues of the FedLock overlay):
+  decision      each rate announcement's move, 25bp units   parsed from the announcements
   policy_rate   target for the overnight rate (%)          Valet V39079 (daily, 2009-)
                 spliced onto Bank Rate − 25bp before 2009  Valet V122530 (monthly)
   cpi_headline  total CPI, y/y %                           Valet STATIC_TOTALCPICHANGE
@@ -66,6 +67,24 @@ def _step(data: list) -> list:
     return comp
 
 
+def decision_series() -> dict:
+    """Each rate announcement's decision in 25bp units (0 hold, +1 a quarter-point
+    hike, -3 a 75bp cut), read from the announcement text itself (macro.boc_decisions).
+    The Council decides by consensus and publishes no votes, so there is no dissent
+    to add: this is the Bank of Canada's whole "vote"."""
+    from boclock.config import PROCESSED
+    from boclock.macro.boc_decisions import decisions
+    from boclock.schema import load_corpus
+    rows = [d for d in decisions(load_corpus(PROCESSED / "corpus.jsonl"))
+            if d["units"] is not None]
+    if not rows:
+        return {}
+    data = [[d["date"], d["units"]] for d in rows]
+    print(f"[ok]   decision: {len(data)} announcements, {data[0][0]}..{data[-1][0]}")
+    return {"decision": {"label": "BoC decision (25bp units)", "unit": "",
+                         "shape": "marker", "data": data}}
+
+
 def main():
     out = {}
     s = policy_rate()
@@ -86,6 +105,10 @@ def main():
         data = [[d.strftime("%Y-%m-%d"), round(float(v), 3)] for d, v in s.items()]
         out[name] = {"label": label, "unit": "%", "shape": shape, "data": data}
         print(f"[ok]   {name}: {len(data)} points, {data[0][0]}..{data[-1][0]}, last={data[-1][1]}")
+    try:
+        out.update(decision_series())
+    except Exception as e:  # noqa: BLE001 - the corpus-derived series is a bonus
+        print(f"[warn] decision series failed: {type(e).__name__}: {e}")
     OUT.parent.mkdir(parents=True, exist_ok=True)
     OUT.write_text(json.dumps({"series": out}, ensure_ascii=False), encoding="utf-8")
     print("Wrote", OUT)

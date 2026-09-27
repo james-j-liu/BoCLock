@@ -88,7 +88,7 @@ class Tournament:
             k = self.rng.randrange(len(order) - 1)
             while len(pairs) < n_unc + n_swiss:
                 if k + 1 >= len(order):
-                    k = self.rng.randrange(2)       # wrap round; alternate the phase
+                    k = self.rng.randrange(min(2, len(order) - 1))   # wrap round; alternate the phase
                 pairs.append((order[k], order[k + 1]))
                 k += 2
 

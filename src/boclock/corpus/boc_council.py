@@ -65,7 +65,15 @@ def rate_announcements(use_cache: bool = True, max_pages: int | None = None,
 
     def one(x):
         h = boc_site.get(x["url"], use_cache=use_cache)
-        return _record(x, ST_ANNOUNCE, boc_site.page_text(h)) if h else None
+        if not h:
+            return None
+        text = boc_site.page_text(h)
+        # a title can mention rates without being a decision (a 2016 release
+        # summarising a Governor's speech on "low interest rates"): a rate
+        # announcement states the overnight-rate target in its opening lines
+        if not re.search(r"overnight rate|Bank Rate", text[:600], re.I):
+            return None
+        return _record(x, ST_ANNOUNCE, text)
     out = _pmap(one, items)
     if verbose:
         print(f"  rate announcements: {len(items)} -> {len(out)}")
