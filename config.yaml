@@ -1,0 +1,66 @@
+# BoCLock pipeline configuration
+
+corpus:
+  start_year: 1995        # first Monetary Policy Report (May 1995); Council formed 1994
+  end_year: 2026
+
+judge:
+  provider: openrouter
+  model: "google/gemini-2.5-flash-lite"   # chat model: policy classification only
+  classifier_recheck_model: "google/gemini-2.5-flash"   # second opinion on every rejection
+  # Scoring runs on TypeSafe's Jev decision model: it answers a typed choice/score
+  # question instead of writing text, bills input only ($0.042/M, output free) and
+  # shows far less slot-A bias than the chat judge. PAIRWISE_MODEL / DIRECT_MODEL
+  # env vars override; a non-Jev id falls back to the chat judges below.
+  pairwise_model: "typesafe/jev-1.13"
+  direct_model: "typesafe/jev-1.13"
+  # Jev's context is 32k tokens and a comparison carries two excerpts, so each is
+  # capped here; longer documents are sampled 40/20/40 (opening/middle/close).
+  jev_excerpt_chars: 56000
+  validator_model: "anthropic/claude-haiku-4.5"  # cross-model check on a subset
+  # Chat-judge settings (used only when a non-Jev scoring model is configured).
+  # Every comparison sends two excerpts and the run makes ~15 per document, so
+  # this cap is the token bill; over it a document is sampled head/middle/tail.
+  max_excerpt_chars: 20000
+  # …except these, judged whole however long (chat judges only; Jev's window is fixed).
+  uncapped_types: [mp_report]
+  temperature: 0.0
+  concurrency: 8
+
+tournament:
+  initial_mu: 50.0
+  initial_sigma: 8.333
+  target_appearances_per_speech: 30   # FedLock parity (=> ~15*N comparisons)
+  # Jev verdicts below this confidence are recorded as draws, not wins: most calls
+  # between closely matched documents are near coin-flips, and treating them as
+  # decisive adds noise (split-half reliability 0.54 -> 0.67; draw_experiment.py).
+  draw_below_confidence: 0.60
+  draw_probability: 0.75    # TrueSkill's prior that equal documents come out level
+  min_appearances: 10       # daily run tops up any document below this, pairing it directly
+  sigma_convergence: 2.0
+  pairing:
+    swiss_fraction: 0.6
+    uncertainty_fraction: 0.3
+    random_fraction: 0.1
+
+era_adjustment:
+  recenter_to: 50.0
+  period: quarter
+
+timeline:
+  gaussian_sigma_days: 45
+  sample_freq: weekly
+
+macro:
+  # Canadian analogues of FedLock's Core PCE / unemployment / GDP / VIX.
+  # "valet:<code>" = Bank of Canada Valet API; "statcan:<vector>" = StatCan WDS;
+  # a ":yoy" suffix turns a level into its year-on-year % change.
+  series:
+    cpi: "valet:STATIC_TOTALCPICHANGE"      # total CPI, y/y % (the 2% target)
+    core_cpi: "valet:CPI_TRIM"              # CPI-trim, y/y %
+    unemployment: "statcan:2062815"         # LFS unemployment rate 15+, SA
+    gdp_growth: "statcan:62305752:yoy"      # real GDP (quarterly, chained), y/y %
+
+proof_of_concept:
+  n_speeches: 50
+  appearances_per_speech: 15
