@@ -37,16 +37,26 @@ _session = requests.Session()
 _session.headers["User-Agent"] = UA
 
 
-# Hosts that block an IP for a while after a burst of requests (sencanada.ca cut this
-# machine off for over an hour after ~40 quick listing calls): one request at a time,
-# spaced out.
-_SLOW_HOSTS = {"sencanada.ca": 2.0}
+# Hosts that block an IP for hours after a burst of requests (sencanada.ca cut this
+# machine off after ~40 quick listing calls): one request at a time, spaced out, with
+# a short timeout. Once a blocked host has timed out twice running it is treated as
+# down for the rest of the run — otherwise every remaining request waits out its
+# retries, and a CI job spent its whole two hours doing that.
+_SLOW_HOSTS = {"sencanada.ca": 5.0}
 _slow_lock = threading.Lock()
 _slow_last: dict[str, float] = {}
+_timeouts: dict[str, int] = {}
 
 
-def _throttle(url: str) -> threading.Lock | None:
-    host = next((h for h in _SLOW_HOSTS if h in url), None)
+class HostDown(RuntimeError):
+    pass
+
+
+def _host(url: str) -> str | None:
+    return next((h for h in _SLOW_HOSTS if h in url), None)
+
+
+def _throttle(host: str | None) -> threading.Lock | None:
     if not host:
         return None
     _slow_lock.acquire()
@@ -63,11 +73,16 @@ def get(url: str, use_cache: bool = True, binary: bool = False, tries: int = 4):
     f = CACHE / (hashlib.sha1(url.encode()).hexdigest() + (".bin" if binary else ".html"))
     if use_cache and f.exists():
         return f.read_bytes() if binary else f.read_text(encoding="utf-8")
+    host = _host(url)
+    if host and _timeouts.get(host, 0) >= 2:
+        raise HostDown(f"{host} is not answering (blocked?); skipping {url}")
     last = None
     for i in range(tries):
-        lock = _throttle(url)
+        lock = _throttle(host)
         try:
-            r = _session.get(url, timeout=90)
+            r = _session.get(url, timeout=30 if host else 90)
+            if host:
+                _timeouts[host] = 0
             if r.status_code == 404:
                 return None
             r.raise_for_status()
@@ -79,6 +94,10 @@ def get(url: str, use_cache: bool = True, binary: bool = False, tries: int = 4):
             return r.text
         except requests.RequestException as e:
             last = e
+            if host and isinstance(e, (requests.ConnectionError, requests.Timeout)):
+                _timeouts[host] = _timeouts.get(host, 0) + 1
+                if _timeouts[host] >= 2:
+                    raise HostDown(f"{host} is not answering (blocked?): {e}") from e
             time.sleep(2 * (i + 1))
         finally:
             if lock:

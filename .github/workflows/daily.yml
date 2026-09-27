@@ -26,7 +26,7 @@ concurrency:
 jobs:
   update:
     runs-on: ubuntu-latest
-    timeout-minutes: 120
+    timeout-minutes: 240
     steps:
       - uses: actions/checkout@v4
       - uses: actions/setup-python@v5
@@ -35,19 +35,39 @@ jobs:
           cache: pip          # reuse installed wheels instead of rebuilding each morning
       - name: Install dependencies
         run: pip install -r requirements.txt
+      - name: Restore the page cache
+        # a backfill cut short resumes from the pages it already fetched
+        uses: actions/cache@v4
+        with:
+          path: data/raw/boc_cache
+          key: boc-cache-${{ github.run_id }}
+          restore-keys: boc-cache-
       - name: Backfill Senate hearings
         # sencanada.ca blocks an IP for hours after a burst of requests, so the full
         # Senate history can be fetched from here instead of a local machine. Run it
         # from the Actions tab, or by pushing data/processed/backfill_senate.request
         # (removed again once the backfill has run).
+        # Whatever it fetches is committed at once, so a later failure cannot lose it,
+        # and the request is only removed when the whole backfill got through.
         if: ${{ github.event.inputs.backfill_senate == 'true' || hashFiles('data/processed/backfill_senate.request') != '' }}
         continue-on-error: true
+        timeout-minutes: 90
         env:
           OPENROUTER_API_KEY: ${{ secrets.OPENROUTER_API_KEY }}
           JUDGE_MODEL: google/gemini-2.5-flash-lite
         run: |
-          python -u scripts/backfill_parliament.py --senate-only
-          rm -f data/processed/backfill_senate.request
+          if python -u scripts/backfill_parliament.py --senate-only; then
+            rm -f data/processed/backfill_senate.request
+          fi
+          git config user.name "boclock-bot"
+          git config user.email "github-actions[bot]@users.noreply.github.com"
+          git add data/processed/corpus.jsonl
+          git add -u data/processed
+          git commit -m "Senate hearings backfill $(date -u +%F)" || echo "nothing new"
+          for i in 1 2 3; do
+            git pull --rebase origin main && git push && break
+            sleep 15
+          done
       - name: Ingest new speeches and score them
         # a bankofcanada.ca outage or an OpenRouter outage must not block the deploy: the site is
         # still redeployed from the data already in the repo, and the day's new

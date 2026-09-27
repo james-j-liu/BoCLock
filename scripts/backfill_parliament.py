@@ -51,6 +51,10 @@ def main():
         save_corpus(corpus, CORPUS)
         print(f"saved {len(corpus)} records "
               f"({sum(1 for s in new if s.is_policy)} new policy-relevant hearing documents)")
+    from boclock.corpus import boc_site
+    if any(n >= 2 for n in boc_site._timeouts.values()):
+        # keep the request so the next run tries again; whatever was fetched is saved
+        sys.exit("sencanada.ca stopped answering part-way; backfill incomplete")
 
 
 if __name__ == "__main__":
