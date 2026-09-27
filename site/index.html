@@ -51,7 +51,7 @@
   <h1>BoCLock — Bank of Canada Governing Council Hawkishness</h1>
   <div class="sub">An LLM pairwise tournament scoring Canadian monetary-policy
   communication on a hawkish–dovish spectrum: Governing Council members' speeches and
-  parliamentary statements alongside the Council's own rate announcements, Monetary
+  parliamentary evidence alongside the Council's own rate announcements, Monetary
   Policy Reports, summaries of deliberations and press-conference statements. 0 =
   neutral; positive = more hawkish (tighter), negative = more dovish. Method adapted
   from <a href="https://jnathan9.github.io/fedlock/">FedLock</a>; sister sites for the
@@ -67,8 +67,8 @@
   <button data-tab="methodology">Methodology</button>
   <div style="margin-left:auto;display:flex;align-items:center;gap:16px;padding:6px 12px;">
     <label style="color:var(--mut);font-size:12px;display:flex;align-items:center;gap:5px;cursor:pointer;"
-      title="Include the opening statements Council members read to Parliament — the House of Commons Finance Committee and the Senate Banking Committee, usually after a Monetary Policy Report. Untick to score members on their speeches alone">
-      <input type="checkbox" id="inc-tsc" checked> Parliamentary statements</label>
+      title="Include each Council member's evidence to Parliament — the House of Commons Finance Committee and the Senate Banking Committee, usually after a Monetary Policy Report: their opening statement and their answers to the committee's questions. Unlike speeches these are unscripted, and they carry the questions with them — untick to score members on their prepared communication alone">
+      <input type="checkbox" id="inc-tsc" checked> Parliamentary evidence</label>
     <label style="color:var(--mut);font-size:12px;display:flex;align-items:center;gap:5px;cursor:pointer;"
       title="Attribute the press-conference opening statement to the Governor in office at the time (Carney / Poloz / Macklem) instead of the BoC Governing Council composite. Rate announcements, the Monetary Policy Report and the summaries of deliberations always stay with the Council.">
       <input type="checkbox" id="attr-pc"> Press conf → Governor</label>
@@ -90,7 +90,7 @@
       <label>Documents
         <select id="tl-docs"><option value="all" selected>All</option>
         <option value="mpc">Council output only (announcements, MPR, deliberations, press conf.)</option>
-        <option value="testimony">Parliamentary statements only (Commons and Senate)</option>
+        <option value="testimony">Parliamentary evidence only (Commons and Senate)</option>
         <option value="speeches">Member speeches only</option></select></label>
       <span class="overlays" id="tl-overlays">Overlay:
         <label><input type="checkbox" class="ov" value="policy_rate"> Policy rate</label>
@@ -154,7 +154,7 @@ function baseLayout(){return {paper_bgcolor:"#0e1116",plot_bgcolor:"#0e1116",
   margin:{l:55,r:25,t:20,b:45},
   xaxis:{gridcolor:GRID,zerolinecolor:GRID},yaxis:{gridcolor:GRID,zerolinecolor:GRID}};}
 // ALL is every scored document; DATA is the current view of it. The parliamentary
-// statements toggle rebuilds DATA, so every tab, ranking and average follows the
+// evidence toggle rebuilds DATA, so every tab, ranking and average follows the
 // toggle without each one having to know about it.
 let ALL=[], DATA=[], META={}, MACRO={};
 const OVERLAY_COLORS={policy_rate:"#f2c744", cpi_headline:"#e377c2", cpi_trim:"#17becf",
@@ -210,7 +210,7 @@ function passMembership(n,mode){ return mode==="all"?true:mode==="current"?isCur
 const SOURCE_LABELS={mp_announce:"Rate announcement", mp_statement:"Press-conference opening statement",
   mp_report:"Monetary Policy Report", mp_account:"Summary of deliberations",
   mp_qa:"Press conference transcript",
-  speech:"Speech", interview:"Interview", testimony:"Parliamentary opening statement"};
+  speech:"Speech", interview:"Interview", testimony:"Parliamentary evidence"};
 const TYPE_ORDER=["mp_announce","mp_statement","mp_report","mp_account","mp_qa",
   "speech","interview","testimony"];
 // distinct marker glyphs so the Council's own output stands out from ordinary
@@ -562,14 +562,23 @@ transcript of the questions that follow.</li>
 <p>The <b>"Press conf → Governor"</b> toggle (top right) re-attributes the opening statement to
 the Governor in office at the time, folding it into that person's record across every tab.
 Announcements, Reports and deliberations always stay with the Council.</p>
-<h3>Parliamentary statements</h3>
+<h3>Parliamentary evidence</h3>
 <p>The Governor and Senior Deputy Governor appear before the House of Commons Standing Committee
-on Finance and the Senate Banking Committee, usually after a Monetary Policy Report, and open
-with a prepared statement that the Bank publishes. Those statements are scored as the
-presenting member's (★ marker, and its own <b>Documents</b> option); the <b>Parliamentary
-statements</b> checkbox takes them out of every tab at once. Unlike the other statements,
-they are run through the policy classifier, since the committees also call the Bank on bank
-notes, digital currency and its own finances.</p>
+on Finance and the Senate Banking Committee twice a year, usually the week after a Monetary
+Policy Report: a prepared opening statement, then an hour or more of questions. The Bank
+publishes the statement; the questions and answers exist only in Parliament's transcripts —
+the House's evidence (ourcommons.ca, from 1997) and the Senate's (sencanada.ca, from 1996).</p>
+<p>Two or three members sit together, so a transcript is several interleaved voices. Each
+hearing is therefore <b>split by witness</b>: one document per Council member, holding their
+opening statement and every answer they gave, each preceded by the question it answered.
+Speaker labels are replaced by QUESTION and ANSWER, so no parliamentarian's name reaches the
+judge. Where the full transcript is available it <b>replaces</b> the separately published
+opening statement (which it contains); where it is not, the statement is scored on its own.
+These documents carry a ★ marker and their own <b>Documents</b> option. Because they are
+unscripted answers under cross-examination rather than prepared text, the <b>Parliamentary
+evidence</b> checkbox takes them out of every tab at once. They are run through the policy
+classifier, since the committees also question the Bank on bank notes, digital currency and
+its own finances.</p>
 <h3>Who counts as a Council member, and when</h3>
 <p>Only Governing Council members set the policy rate, so only they are scored. The Bank also
 publishes speeches by its Chief Operating Officer, department heads and research staff;
@@ -611,9 +620,9 @@ transcription of the same speeches; where BIS holds a speech the Bank's site lac
 to be their <i>subject</i> — talks on bank notes, payments, financial-system plumbing,
 cyber risk or the Bank's own operations are dropped. The classifier reads three windows
 sampled across each speech rather than its opening. The Council's own documents bypass it.</p>
-<p>Not included (yet): the question-and-answer parts of parliamentary hearings (published by
-the House of Commons and the Senate), and media interviews, which the Bank links but which
-mostly sit behind publishers' paywalls.</p>`;
+<p>Not included: media interviews, which the Bank links but which mostly sit behind
+publishers' paywalls, and the questions at press conferences, for which the Bank publishes
+no transcript.</p>`;
 
 function setHeader(){
   const mpc=DATA.filter(d=>MP_TYPES.has(d.st)).length;

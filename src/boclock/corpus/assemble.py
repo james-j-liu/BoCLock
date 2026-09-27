@@ -7,6 +7,10 @@
   boc_council  -> the "BoC Governing Council" composite: every rate announcement,
                   every Monetary Policy Report (full PDF text), and the Summaries of
                   Governing Council deliberations (2023-).
+  parliament   -> House of Commons Finance Committee and Senate Banking Committee
+                  hearings with Council witnesses, split per member (answers plus the
+                  questions they answer); a hearing's transcript supersedes the
+                  separately published opening statement.
   bis_boc      -> the BIS central bankers' speeches archive, used to cross-check
                   the scrape year by year and to backfill speeches the Bank's site
                   lacks (mostly 1997-2001, when its archive is thin).
@@ -33,7 +37,7 @@ def load_all(use_cache: bool = True, skip: tuple = (),
     site: list[Speech] = []
 
     if "speeches" not in skip:
-        print("[1/3] Bank of Canada speeches and appearances...")
+        print("[1/4] Bank of Canada speeches and appearances...")
         try:
             site = boc_speeches.load(use_cache=use_cache, start_year=start_year,
                                      end_year=end_year, concurrency=concurrency)
@@ -42,14 +46,23 @@ def load_all(use_cache: bool = True, skip: tuple = (),
             print(f"    [warn] BoC speeches failed: {type(e).__name__}: {e}")
 
     if "council" not in skip:
-        print("[2/3] Governing Council composite (rate announcements / MPR / deliberations)...")
+        print("[2/4] Governing Council composite (rate announcements / MPR / deliberations)...")
         try:
             speeches += boc_council.load(use_cache=use_cache)
         except Exception as e:  # noqa: BLE001
             print(f"    [warn] Council composite failed: {type(e).__name__}: {e}")
 
+    if "parliament" not in skip:
+        print("[3/4] Parliamentary hearings (House FINA, Senate BANC)...")
+        try:
+            from . import parliament
+            dates = {s.date for s in site if s.source_type == "testimony"}
+            speeches += parliament.load(use_cache=use_cache, statement_dates=dates)
+        except Exception as e:  # noqa: BLE001
+            print(f"    [warn] parliamentary hearings failed: {type(e).__name__}: {e}")
+
     if "bis" not in skip:
-        print("[3/3] BIS cross-check...")
+        print("[4/4] BIS cross-check...")
         try:
             from . import bis_boc
             bis = bis_boc.load(use_cache=use_cache, start_year=start_year, end_year=end_year)
@@ -60,7 +73,8 @@ def load_all(use_cache: bool = True, skip: tuple = (),
     seen: dict[str, Speech] = {}
     for s in speeches:
         seen.setdefault(s.id, s)
-    deduped = drop_duplicates(list(seen.values()))
+    from .parliament import supersede
+    deduped = supersede(drop_duplicates(list(seen.values())))
     print(f"Combined {len(speeches)} -> {len(deduped)} after de-dup")
     return deduped
 
@@ -154,7 +168,7 @@ if __name__ == "__main__":
     ap = argparse.ArgumentParser()
     ap.add_argument("--no-cache", action="store_true")
     ap.add_argument("--skip", default="",
-                    help="comma-separated source keys to skip (speeches, council, bis)")
+                    help="comma-separated source keys to skip (speeches, council, parliament, bis)")
     ap.add_argument("--concurrency", type=int, default=6)
     args = ap.parse_args()
     corpus = build(use_cache=not args.no_cache, skip=tuple(x for x in args.skip.split(",") if x),

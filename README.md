@@ -15,7 +15,7 @@ document into a continuous score.
 
 | | |
 |---|---|
-| **Governing Council members** | Every monetary-policy speech by a member of the Governing Council — the Governor, the Senior Deputy Governor, the Deputy Governors and (since 2023) the external Deputy Governors — 1995 to today, **only while they sat on the Council** (`roster_gc.TENURE`; Carney and Macklem each served twice). Plus the opening statements they read to the House of Commons Finance Committee and the Senate Banking Committee. Speeches by officials who never sit on the Council (COO, department heads, research staff) are excluded entirely. |
+| **Governing Council members** | Every monetary-policy speech by a member of the Governing Council — the Governor, the Senior Deputy Governor, the Deputy Governors and (since 2023) the external Deputy Governors — 1995 to today, **only while they sat on the Council** (`roster_gc.TENURE`; Carney and Macklem each served twice). Plus their **evidence to Parliament** — House of Commons Finance Committee and Senate Banking Committee hearings, split per member (their opening statement and answers, each answer preceded by its question). Speeches by officials who never sit on the Council (COO, department heads, research staff) are excluded entirely. |
 | **"BoC Governing Council"** | The Council's own output, as one composite speaker: every **rate announcement** (8 a year since Dec 2000), every **Monetary Policy Report** since May 1995 (full PDF, one document each), the **Summaries of Governing Council deliberations** (2023–), and the **press-conference opening statements**. |
 
 The Council decides by consensus and publishes no votes, so — unlike MPCLock —
@@ -28,12 +28,13 @@ Yes, comfortably. As built on 2026-09-27:
 | Source | Records | Policy-relevant |
 |---|---:|---:|
 | Speeches (bankofcanada.ca + 12 BIS-only backfills) | 535 | ~390 |
-| Parliamentary opening statements | 114 | ~110 |
+| House Finance Committee hearings, per member (1998–) | 115 | 109 |
+| Parliamentary opening statements not (yet) replaced by a transcript | 54 | ~52 |
 | Press-conference opening statements | 125 | 125 |
 | Rate announcements | 205 | 205 |
 | Monetary Policy Reports | 117 | 117 |
 | Summaries of deliberations | 31 | 31 |
-| **Total** | **1,127** | **~980** |
+| **Total** | **1,182** | **1,032** |
 
 That is ~80% of MPCLock's pool (1,261), and every year from 1998 has 20+ documents.
 The thin spot is 1995–2000 (Thiessen era), when the Bank's online archive holds
@@ -52,16 +53,23 @@ The thin spot is 1995–2000 (Thiessen era), when the Bank's online archive hold
   speeches). The site is more complete in every year; BIS contributes 12 speeches
   the site lacks. BIS files the press-conference statements under the Governor, so
   duplicates are caught by 8-gram text overlap, not by speaker.
+- **Parliament.** House of Commons FINA evidence (`/Committees/en/FINA/Meetings?parl=P&session=S`
+  lists meetings; the transcript is XML from 2006, HTML before) and Senate BANC evidence
+  (`/umbraco/surface/CommitteesAjax/GetTablePartialView?tableName=Meetings&committeeId=1003&selectedSession=P-S&TabSelected=PAST&PageSize=100&p=N`,
+  which lists witnesses and, from 2011, transcript links; older transcripts come from the
+  session's issue pages). Each hearing is split per Council witness
+  (`corpus/parliament.py`), speaker labels replaced by QUESTION/ANSWER, and supersedes
+  the separately published opening statement for the same chamber. **sencanada.ca
+  blocks an IP for hours after a burst of requests**: requests to it are throttled to
+  one every 2 s, and `workflow_dispatch` with *backfill_senate* runs the Senate
+  backfill from GitHub's runners.
 - **Macro context — Bank of Canada Valet API** (CPI, CPI-trim, CPI-median, policy
   rate, 10-year GoC yield) and **Statistics Canada WDS** (unemployment, real GDP).
   Each series is lagged by its publication delay so the judge sees only what had
   been released on the document's date.
 
-### Looked at, not (yet) included
+### Looked at, not included
 
-- **Parliamentary Q&A.** House of Commons FINA evidence (ourcommons.ca, online from
-  1997) and Senate BANC transcripts hold the questions after each opening statement.
-  They would need splitting per witness, as MPCLock does for the Treasury Committee.
 - **Press-conference Q&A.** The Bank publishes webcasts only, no transcripts.
 - **Media interviews.** `/content_type/press/selected-interviews/` links ~50
   interviews (2020–), almost all on paywalled sites (Globe and Mail, FT, Reuters,
@@ -70,7 +78,7 @@ The thin spot is 1995–2000 (Thiessen era), when the Bank's online archive hold
 ## Pipeline
 
 ```
-corpus/       boc_speeches · boc_council · bis_boc   -> data/processed/corpus.jsonl
+corpus/       boc_speeches · boc_council · parliament · bis_boc -> data/processed/corpus.jsonl
 process/      classify (policy relevance, with a second-opinion model on rejects)
               anonymize (5 layers)
 judge/        jev (pairwise + direct, default) · openrouter / direct (chat fallback)

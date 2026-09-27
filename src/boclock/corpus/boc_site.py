@@ -21,6 +21,7 @@ import hashlib
 import html as _html
 import io
 import re
+import threading
 import time
 
 import requests
@@ -36,6 +37,26 @@ _session = requests.Session()
 _session.headers["User-Agent"] = UA
 
 
+# Hosts that block an IP for a while after a burst of requests (sencanada.ca cut this
+# machine off for over an hour after ~40 quick listing calls): one request at a time,
+# spaced out.
+_SLOW_HOSTS = {"sencanada.ca": 2.0}
+_slow_lock = threading.Lock()
+_slow_last: dict[str, float] = {}
+
+
+def _throttle(url: str) -> threading.Lock | None:
+    host = next((h for h in _SLOW_HOSTS if h in url), None)
+    if not host:
+        return None
+    _slow_lock.acquire()
+    wait = _SLOW_HOSTS[host] - (time.time() - _slow_last.get(host, 0))
+    if wait > 0:
+        time.sleep(wait)
+    _slow_last[host] = time.time()
+    return _slow_lock
+
+
 def get(url: str, use_cache: bool = True, binary: bool = False, tries: int = 4):
     """GET with a disk cache (keyed by URL) and polite retries."""
     CACHE.mkdir(parents=True, exist_ok=True)
@@ -44,6 +65,7 @@ def get(url: str, use_cache: bool = True, binary: bool = False, tries: int = 4):
         return f.read_bytes() if binary else f.read_text(encoding="utf-8")
     last = None
     for i in range(tries):
+        lock = _throttle(url)
         try:
             r = _session.get(url, timeout=90)
             if r.status_code == 404:
@@ -58,6 +80,9 @@ def get(url: str, use_cache: bool = True, binary: bool = False, tries: int = 4):
         except requests.RequestException as e:
             last = e
             time.sleep(2 * (i + 1))
+        finally:
+            if lock:
+                lock.release()
     raise RuntimeError(f"GET {url} failed: {last}")
 
 

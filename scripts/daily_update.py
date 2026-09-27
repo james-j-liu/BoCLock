@@ -30,7 +30,7 @@ except Exception:
     pass
 
 from boclock.config import PROCESSED, cfg
-from boclock.corpus import assemble, boc_council, boc_speeches
+from boclock.corpus import assemble, boc_council, boc_speeches, parliament
 from boclock.macro.ca_macro import MacroContext
 from boclock.output.build_data import era_adjust, write_data_json
 from boclock.process.anonymize import Anonymizer
@@ -72,6 +72,17 @@ def main():
                                               skip_urls=skip, verbose=False)
         got += boc_council.mprs(use_cache=False, max_pages=1, skip_urls=skip, verbose=False)
         got += boc_council.deliberations(use_cache=False, skip_urls=skip, verbose=False)
+        # hearing transcripts appear a few weeks after the opening statement; read
+        # the current session, and the next ones in case Parliament was prorogued
+        # or dissolved since SESSIONS was last edited
+        parl, sess = parliament.SESSIONS[-1]
+        dates = {s.date for s in existing + got if s.source_type == "testimony"}
+        try:
+            got += parliament.load(use_cache=False, statement_dates=dates, skip_urls=skip,
+                                   sessions=[(parl, sess), (parl, sess + 1), (parl + 1, 1)],
+                                   verbose=False)
+        except Exception as e:  # noqa: BLE001 - sencanada.ca rate-limits; retry tomorrow
+            print(f"[warn] parliamentary hearings failed: {type(e).__name__}: {e}")
         # a few items are listed under two URLs (the July 2024 Report has an old and a
         # new landing page), so a new URL alone does not make a new document
         have_keys = {(s.source_type, s.date, s.title) for s in existing}
@@ -99,7 +110,7 @@ def main():
         if pending:
             Classifier().classify_all(pending)      # is_policy (composite types auto-pass)
         if new:
-            corpus = assemble.drop_duplicates(existing + new)
+            corpus = parliament.supersede(assemble.drop_duplicates(existing + new))
             save_corpus(corpus, CORPUS)
 
         pool = make_pool(corpus)
