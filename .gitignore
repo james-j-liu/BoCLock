@@ -18,3 +18,5 @@ _*.txt
 tournament.log
 classify*.log
 
+
+!data/processed/backfill_senate.request

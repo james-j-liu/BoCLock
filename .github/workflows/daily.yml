@@ -37,13 +37,17 @@ jobs:
         run: pip install -r requirements.txt
       - name: Backfill Senate hearings
         # sencanada.ca blocks an IP for hours after a burst of requests, so the full
-        # Senate history can be fetched from here instead of a local machine
-        if: ${{ github.event.inputs.backfill_senate == 'true' }}
+        # Senate history can be fetched from here instead of a local machine. Run it
+        # from the Actions tab, or by pushing data/processed/backfill_senate.request
+        # (removed again once the backfill has run).
+        if: ${{ github.event.inputs.backfill_senate == 'true' || hashFiles('data/processed/backfill_senate.request') != '' }}
         continue-on-error: true
         env:
           OPENROUTER_API_KEY: ${{ secrets.OPENROUTER_API_KEY }}
           JUDGE_MODEL: google/gemini-2.5-flash-lite
-        run: python -u scripts/backfill_parliament.py --senate-only
+        run: |
+          python -u scripts/backfill_parliament.py --senate-only
+          rm -f data/processed/backfill_senate.request
       - name: Ingest new speeches and score them
         # a bankofcanada.ca outage or an OpenRouter outage must not block the deploy: the site is
         # still redeployed from the data already in the repo, and the day's new
@@ -61,6 +65,7 @@ jobs:
           git config user.name "boclock-bot"
           git config user.email "github-actions[bot]@users.noreply.github.com"
           git add data/processed/corpus.jsonl data/processed/tournament_log.jsonl site/data.json site/macro.json
+          git add -u data/processed      # stages a consumed backfill request's removal
           git commit -m "daily update $(date -u +%F)" || echo "no changes to commit"
           # main may have moved during the run (e.g. a code push); rebase onto it
           # rather than failing the whole deploy
