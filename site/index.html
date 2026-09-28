@@ -607,7 +607,10 @@ opening statement and every answer they gave, each preceded by the question it a
 Speaker labels are replaced by QUESTION and ANSWER, so no parliamentarian's name reaches the
 judge. Where the full transcript is available it <b>replaces</b> the separately published
 opening statement (which it contains); where it is not, the statement is scored on its own.
-These documents carry a ★ marker and their own <b>Documents</b> option. Because they are
+These documents carry a ★ marker and their own <b>Documents</b> option. Coverage: every
+House of Commons hearing since 1998; for the Senate, the current session only so far —
+sencanada.ca blocks automated access to its meeting listings after a handful of requests, so
+earlier Senate hearings are still represented by their published opening statements. Because they are
 unscripted answers under cross-examination rather than prepared text, the <b>Parliamentary
 evidence</b> checkbox takes them out of every tab at once. They are run through the policy
 classifier, since the committees also question the Bank on bank notes, digital currency and
@@ -630,6 +633,28 @@ decision is the change from the previous announcement; every parsed level since 
 Bank's published overnight-rate series. The Governing Council decides by consensus and
 publishes no votes, so unlike the MPC there are no dissents to fold in: this is the whole of the
 Council's recorded choice.</p>
+<h3>Does the text move markets?</h3>
+<p>Since December 2000 the Bank has announced its decisions on fixed dates, during market
+hours, which gives 202 clean events to test the index against. On each, the change in the
+<b>2-year Government of Canada yield</b> from the previous close was regressed on the
+decision (in 25bp units) and on the pairwise hawkishness of that day's rate announcement
+(heteroskedasticity-robust standard errors; <code>scripts/announcement_reaction.py</code>).</p>
+<ul>
+<li>The decision alone explains little (R² 0.04): most of it is expected before it is announced.</li>
+<li>The <b>change in the announcement's tone since the previous one</b> explains four to five times
+as much (R² 0.18): each point of added hawkishness on the −10…+10 scale goes with a
+<b>+2.6bp</b> rise in the 2-year yield that day (t = 4.9). With the change in the decision
+itself controlled for, it is still +1.9bp (t = 3.4).</li>
+<li>It holds on <b>holds</b> alone — 131 days on which the rate did not move, where the words
+are all there is (t = 2.7) — and it survives dropping 2008–09 and 2020 (t = 5.1), trimming
+the largest yield moves (t = 4.6), and splitting the sample at 2010 (t = 3.7 before, 3.3
+after).</li>
+</ul>
+<p>The judge sees only the anonymised text and the macro data published by that day — no
+market prices — so this is the model reading, from the words alone, information that the
+market also reacted to. It is an association on announcement days, not a forecast: MPCLock's
+equivalent test found the index describes the Committee's stance but does not predict its
+next vote.</p>
 <h3>Trend by document type, and the Council split</h3>
 <p>Because the Council speaks with one voice, its own output carries most of the signal, and
 individual members' averages sit close together. <b>Trend by document type</b> (Timeline) draws

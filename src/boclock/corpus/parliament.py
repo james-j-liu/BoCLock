@@ -326,6 +326,14 @@ def load(use_cache: bool = True, statement_dates: set[str] | None = None,
             rows = []
         senate += [m for m in rows if m["url"] not in skip_urls]
 
+    # the Senate endpoint answers a session that does not exist yet (the daily run
+    # probes the next one) with the current session's table, and a meeting can be
+    # listed under two sessions: one fetch per transcript
+    seen_urls: set = set()
+    senate = [m for m in senate if not (m["url"] in seen_urls or seen_urls.add(m["url"]))]
+    seen_urls = set()
+    house = [m for m in house if not (m["url"] in seen_urls or seen_urls.add(m["url"]))]
+
     def work(fn, m):
         try:
             return fn(m, use_cache=use_cache)
@@ -341,7 +349,7 @@ def load(use_cache: bool = True, statement_dates: set[str] | None = None,
         print(f"  parliament: House {len(house)} candidate meetings -> {len(h_docs)} member-documents; "
               f"Senate {len(senate)} Bank meetings ({missing} without a transcript link) "
               f"-> {len(s_docs)} member-documents")
-    return h_docs + s_docs
+    return list({s.id: s for s in h_docs + s_docs}.values())
 
 
 def supersede(corpus: list[Speech], verbose: bool = True) -> list[Speech]:

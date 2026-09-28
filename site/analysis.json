@@ -1,0 +1,163 @@
+{
+ "n_events": 202,
+ "first": "2001-01-23",
+ "last": "2026-09-02",
+ "models": {
+  "decision + change in decision + change in tone": {
+   "vars": [
+    "move",
+    "dmove",
+    "dhawk_ann"
+   ],
+   "n": 201,
+   "r2": 0.205,
+   "coef": {
+    "move": 0.45,
+    "dmove": 2.55,
+    "dhawk_ann": 1.85
+   },
+   "t": {
+    "move": 0.61,
+    "dmove": 1.93,
+    "dhawk_ann": 3.39
+   },
+   "p": {
+    "move": 0.5411,
+    "dmove": 0.054,
+    "dhawk_ann": 0.0007
+   }
+  },
+  "robust: excluding 2008-09 and 2020": {
+   "vars": [
+    "move",
+    "dhawk_ann"
+   ],
+   "n": 178,
+   "r2": 0.169,
+   "coef": {
+    "move": 0.94,
+    "dhawk_ann": 2.47
+   },
+   "t": {
+    "move": 1.05,
+    "dhawk_ann": 5.09
+   },
+   "p": {
+    "move": 0.2948,
+    "dhawk_ann": 0.0
+   }
+  },
+  "robust: dy2 trimmed to its 2.5-97.5% range": {
+   "vars": [
+    "move",
+    "dhawk_ann"
+   ],
+   "n": 189,
+   "r2": 0.118,
+   "coef": {
+    "move": 0.74,
+    "dhawk_ann": 1.58
+   },
+   "t": {
+    "move": 1.39,
+    "dhawk_ann": 4.62
+   },
+   "p": {
+    "move": 0.166,
+    "dhawk_ann": 0.0
+   }
+  },
+  "decision only": {
+   "vars": [
+    "move"
+   ],
+   "n": 202,
+   "r2": 0.037,
+   "coef": {
+    "move": 1.63
+   },
+   "t": {
+    "move": 2.36
+   },
+   "p": {
+    "move": 0.0184
+   }
+  },
+  "decision + announcement tone": {
+   "vars": [
+    "move",
+    "hawk_ann"
+   ],
+   "n": 202,
+   "r2": 0.064,
+   "coef": {
+    "move": 0.41,
+    "hawk_ann": 1.01
+   },
+   "t": {
+    "move": 0.48,
+    "hawk_ann": 2.5
+   },
+   "p": {
+    "move": 0.6334,
+    "hawk_ann": 0.0126
+   }
+  },
+  "decision + all same-day Council text": {
+   "vars": [
+    "move",
+    "hawk_all"
+   ],
+   "n": 202,
+   "r2": 0.062,
+   "coef": {
+    "move": 0.46,
+    "hawk_all": 1.01
+   },
+   "t": {
+    "move": 0.53,
+    "hawk_all": 2.37
+   },
+   "p": {
+    "move": 0.5969,
+    "hawk_all": 0.0178
+   }
+  },
+  "decision + change in announcement tone": {
+   "vars": [
+    "move",
+    "dhawk_ann"
+   ],
+   "n": 201,
+   "r2": 0.178,
+   "coef": {
+    "move": 0.83,
+    "dhawk_ann": 2.58
+   },
+   "t": {
+    "move": 1.17,
+    "dhawk_ann": 4.92
+   },
+   "p": {
+    "move": 0.2413,
+    "dhawk_ann": 0.0
+   }
+  },
+  "holds only: announcement tone": {
+   "vars": [
+    "hawk_ann"
+   ],
+   "n": 131,
+   "r2": 0.04,
+   "coef": {
+    "hawk_ann": 0.99
+   },
+   "t": {
+    "hawk_ann": 2.65
+   },
+   "p": {
+    "hawk_ann": 0.008
+   }
+  }
+ }
+}

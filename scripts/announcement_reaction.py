@@ -92,7 +92,14 @@ def fit(df: pd.DataFrame, cols: list[str]) -> dict:
 
 def main():
     df = events()
+    df["dmove"] = df["move"].diff()
+    trim = df["dy2"].quantile([0.025, 0.975])
     models = {
+        "decision + change in decision + change in tone": fit(df, ["move", "dmove", "dhawk_ann"]),
+        "robust: excluding 2008-09 and 2020": fit(
+            df[~df["date"].str[:4].isin(["2008", "2009", "2020"])], ["move", "dhawk_ann"]),
+        "robust: dy2 trimmed to its 2.5-97.5% range": fit(
+            df[(df["dy2"] > trim.iloc[0]) & (df["dy2"] < trim.iloc[1])], ["move", "dhawk_ann"]),
         "decision only": fit(df, ["move"]),
         "decision + announcement tone": fit(df, ["move", "hawk_ann"]),
         "decision + all same-day Council text": fit(df, ["move", "hawk_all"]),

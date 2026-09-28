@@ -60,9 +60,28 @@ The thin spot is 1995–2000 (Thiessen era), when the Bank's online archive hold
   session's issue pages). Each hearing is split per Council witness
   (`corpus/parliament.py`), speaker labels replaced by QUESTION/ANSWER, and supersedes
   the separately published opening statement for the same chamber. **sencanada.ca
-  blocks an IP for hours after a burst of requests**: requests to it are throttled to
-  one every 2 s, and `workflow_dispatch` with *backfill_senate* runs the Senate
-  backfill from GitHub's runners.
+  blocks an IP for hours after a few requests to its listing endpoint** (it happened
+  locally and on a GitHub runner, even at one request per 5 s): requests to it are
+  spaced, sent with the Referer/XHR headers its own pages use, and abandoned for the
+  run after two timeouts (`boc_site.HostDown`). So the Senate is covered for the current
+  session only (fetched daily); older Senate hearings are still represented by their
+  published opening statements. To retry the history, push
+  `data/processed/backfill_senate.request` or run the workflow with *backfill_senate*.
+
+## Findings
+
+- **Announcement-day yields** (`scripts/announcement_reaction.py`, 202 fixed-date
+  announcements 2001–2026). The 2-year GoC yield change that day is explained far better
+  by the *change in the announcement's tone* than by the decision: R² 0.04 → 0.18,
+  +2.6bp per point of tone (t = 4.9); +1.9bp (t = 3.4) with the change in decision
+  controlled for; significant on holds alone, excluding 2008–09/2020, with the tails
+  trimmed, and before and after 2010 separately.
+- **Decisions** (`macro/boc_decisions.py`): parsed from each announcement's opening
+  sentence; every level since 2009 matches Valet V39079. Shown as the *BoC decision*
+  overlay.
+- **Pairing fix + rebalance**: the Swiss step used to give 60% of all comparisons to the
+  ~100 most dovish documents. After the fix and a top-up to 45 appearances' worth of
+  comparisons, every document has ≥25 (median 30, was 15); mean sigma 2.0 → 1.38.
 - **Macro context — Bank of Canada Valet API** (CPI, CPI-trim, CPI-median, policy
   rate, 10-year GoC yield) and **Statistics Canada WDS** (unemployment, real GDP).
   Each series is lagged by its publication delay so the judge sees only what had

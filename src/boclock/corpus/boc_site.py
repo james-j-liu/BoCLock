@@ -80,7 +80,13 @@ def get(url: str, use_cache: bool = True, binary: bool = False, tries: int = 4):
     for i in range(tries):
         lock = _throttle(host)
         try:
-            r = _session.get(url, timeout=30 if host else 90)
+            # sencanada.ca's pages call their own data endpoints as XHRs from a
+            # committee page; a bare request is what its firewall appears to block
+            headers = ({"Referer": "https://sencanada.ca/en/committees/banc/",
+                        "X-Requested-With": "XMLHttpRequest"}
+                       if host and "/umbraco/" in url else
+                       {"Referer": "https://sencanada.ca/en/committees/banc/"} if host else None)
+            r = _session.get(url, timeout=30 if host else 90, headers=headers)
             if host:
                 _timeouts[host] = 0
             if r.status_code == 404:

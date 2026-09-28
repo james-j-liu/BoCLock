@@ -88,6 +88,7 @@ def main():
         have_keys = {(s.source_type, s.date, s.title) for s in existing}
         new = [s for s in got if s.id not in have_ids
                and (s.source_type, s.date, s.title) not in have_keys]
+        new = list({s.id: s for s in new}.values())   # one record per id, ever
         print(f"new documents: {len(new)}")
         for s in new:
             print(f"  + {s.date} {s.source_type:12} {s.speaker[:24]:24} {s.title[:60]}")
